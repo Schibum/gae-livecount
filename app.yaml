@@ -1,10 +1,10 @@
 application: livecount
 version: 1
-runtime: python
+runtime: python27
 api_version: 1
+threadsafe: true
 
 builtins:
-- datastore_admin: on
 - remote_api: on
 - appstats: on
 
@@ -16,17 +16,17 @@ inbound_services:
 
 handlers:
 - url: /livecount/counter_admin
-  script: livecount/counter_admin.py
+  script: livecount.counter_admin.app
   login: admin
 
 - url: /livecount/.*
-  script: livecount/counter.py
+  script: livecount.counter.app
   login: admin
   
 - url: /examples
-  script: examples.py
+  script: examples.app
 
 # For convenience / demo only
 # redirects to counter admin page
 - url: .*
-  script: livecount/counter.py
+  script: livecount.counter.app

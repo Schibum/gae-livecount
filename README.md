@@ -33,7 +33,7 @@ If writeback loads are higher than desired on frequently updated counters, Livec
 
 There is also a potential race condition in the load_and_increment_counter function on line 57 of [counter.py](https://github.com/gregbayer/gae-livecount/blob/master/livecount/counter.py).  Here the concern is that if two processes try to load the same value from the datastore (because it is not in the memcache, and two update requests come in simultaneously), one's update may be lost.  This could be avoided by wrapping the critical section in a transaction, at the cost of some performance.  In practice, this is rarely a problem, since counters that are frequently updated usually stay resident in memcache and counters that are infrequently updated are unlikely to have two updates come in at the same time. For some applications, the potential for lost updates is unacceptable. In these cases, it would make sense to use AppEngine's [transaction mechanism](http://code.google.com/appengine/docs/python/datastore/transactions.html) here.
 
-# Scalability Limiatations
+# Scalability Limitations
 
 One factor that affects Livecount's scalability is the rate at which appengine task queues can writeback counter updates (xxx tasks/second per queue). See [Quotas and Limits for Push Queues](http://code.google.com/appengine/docs/python/taskqueue/overview-push.html) for more information.  To effectively increase this limit, Livecount could be extended to use more than one named queue. 
 
@@ -54,4 +54,8 @@ Livecount is by no means the first or only attempt at real-time counters.  Here 
 * [fastpageviews](http://code.google.com/p/fastpageviews/)
 * [Rainbird (Kevin Weil / Twitter)](http://www.slideshare.net/kevinweil/rainbird-realtime-analytics-at-twitter-strata-2011)
 
-
+# Mudiarto's Modifications:
+* convert to wsgi app - for python2.7
+* replace namespace with key, since I have a need to count multiple objects
+* use ndb
+* replace ':' with '|' in the key name, just because ...

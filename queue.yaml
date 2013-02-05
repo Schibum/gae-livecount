@@ -4,5 +4,5 @@ queue:
   bucket_size: 100
 - name: livecount-writebacks
   rate: 100/s
-  bucket_size: 100
+  bucket_size: 1
 

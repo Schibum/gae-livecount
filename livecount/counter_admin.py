@@ -18,10 +18,9 @@
 from datetime import datetime
 import logging
 import os
-import simplejson
-import wsgiref.handlers
 
-from google.appengine.ext import webapp
+#from google.appengine.ext import webapp
+import webapp2 as webapp
 from google.appengine.ext.webapp import template
 
 from livecount import counter
@@ -43,7 +42,7 @@ class CounterHandler(webapp.RequestHandler):
         name = self.request.get('counter_name')
         delta = self.request.get('delta')
         fetch_limit = self.request.get('fetch_limit')
-    
+
         if not namespace:
             namespace = "default"
         if not period_type:
@@ -56,12 +55,12 @@ class CounterHandler(webapp.RequestHandler):
             delta = 1
         if not fetch_limit:
             fetch_limit = "20"
-        
+
         modified_counter = None
         if name:
             full_key = LivecountCounter.KeyName(namespace, period_type, period, name)
             modified_counter = LivecountCounter.get_by_key_name(full_key)
-            
+
         counter_entities_query = LivecountCounter.all().order('-count')
         if namespace:
             counter_entities_query.filter("namespace = ", namespace)
@@ -72,9 +71,9 @@ class CounterHandler(webapp.RequestHandler):
             counter_entities_query.filter("period = ", scoped_period)
         counter_entities = counter_entities_query.fetch(int(fetch_limit))
         logging.info("counter_entities: " + str(counter_entities))
-    
+
         stats = counter.GetMemcacheStats()
-        
+
         template_values = {
                            'namespace': namespace,
                            'period_type': period_type,
@@ -99,23 +98,17 @@ class CounterHandler(webapp.RequestHandler):
         name = self.request.get('counter_name')
         delta = self.request.get('delta')
         type = self.request.get('type')
-        
+
         if type == "Increment Counter":
             counter.load_and_increment_counter(name=name, period=period, period_types=period_types.split(","), namespace=namespace, delta=long(delta))
         elif type == "Decrement Counter":
             counter.load_and_decrement_counter(name=name, period=period, period_types=period_types.split(","), namespace=namespace, delta=long(delta))
-    
+
         logging.info("Redirecting to: /livecount/counter_admin?namespace=" + namespace + "&period_type=" + period_type + "&period_types=" + period_types + "&period=" + period + "&counter_name=" + name + "&delta=" + delta)
         self.redirect("/livecount/counter_admin?namespace=" + namespace + "&period_type=" + period_type + "&period_types=" + period_types + "&period=" + period + "&counter_name=" + name + "&delta=" + delta)
 
 
-def main():
-    application = webapp.WSGIApplication(
-    [  
+app = webapp.WSGIApplication([
         ('/livecount/counter_admin', CounterHandler),
-    ], debug=True)
-    wsgiref.handlers.CGIHandler().run(application)
+    ])
 
-
-if __name__ == '__main__':
-    main()
