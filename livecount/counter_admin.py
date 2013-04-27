@@ -22,6 +22,7 @@ import os
 #from google.appengine.ext import webapp
 import webapp2 as webapp
 from google.appengine.ext.webapp import template
+from google.appengine.ext import ndb
 
 from livecount import counter
 from livecount.counter import LivecountCounter
@@ -35,7 +36,6 @@ class CounterHandler(webapp.RequestHandler):
     """
 
     def get(self):
-        namespace = self.request.get('namespace')
         period_type = self.request.get('period_type')
         period_types = self.request.get('period_types').replace(" ", "")
         period = self.request.get('period')
@@ -43,8 +43,6 @@ class CounterHandler(webapp.RequestHandler):
         delta = self.request.get('delta')
         fetch_limit = self.request.get('fetch_limit')
 
-        if not namespace:
-            namespace = "default"
         if not period_type:
             period_type = PeriodType.DAY
         if not period_types:
@@ -58,24 +56,22 @@ class CounterHandler(webapp.RequestHandler):
 
         modified_counter = None
         if name:
-            full_key = LivecountCounter.KeyName(namespace, period_type, period, name)
-            modified_counter = LivecountCounter.get_by_key_name(full_key)
+            full_key = LivecountCounter.get_key(None, period_type, period, name)
+            modified_counter = full_key.get()
 
-        counter_entities_query = LivecountCounter.all().order('-count')
-        if namespace:
-            counter_entities_query.filter("namespace = ", namespace)
+        counter_entities_query = LivecountCounter.query().order(
+                -LivecountCounter.count)
         if period_type:
-            counter_entities_query.filter("period_type = ", period_type)
+            counter_entities_query.filter(LivecountCounter.period_type == period_type)
         scoped_period = PeriodType.find_scope(period_type, period)
         if period:
-            counter_entities_query.filter("period = ", scoped_period)
+            counter_entities_query.filter(LivecountCounter.period == scoped_period)
         counter_entities = counter_entities_query.fetch(int(fetch_limit))
         logging.info("counter_entities: " + str(counter_entities))
 
         stats = counter.GetMemcacheStats()
 
         template_values = {
-                           'namespace': namespace,
                            'period_type': period_type,
                            'period_types': period_types,
                            'period': period,
@@ -91,21 +87,24 @@ class CounterHandler(webapp.RequestHandler):
 
 
     def post(self):
-        namespace = self.request.get('namespace')
         period_type = self.request.get('period_type')
         period_types = self.request.get('period_types').replace(" ", "")
         period = self.request.get('period')
         name = self.request.get('counter_name')
         delta = self.request.get('delta')
         type = self.request.get('type')
-
         if type == "Increment Counter":
-            counter.load_and_increment_counter(name=name, period=period, period_types=period_types.split(","), namespace=namespace, delta=long(delta))
+            counter.load_and_increment_counter(name=name, period=period,
+                    period_types=period_types.split(","), delta=long(delta))
         elif type == "Decrement Counter":
-            counter.load_and_decrement_counter(name=name, period=period, period_types=period_types.split(","), namespace=namespace, delta=long(delta))
+            counter.load_and_decrement_counter(name=name, period=period,
+                    period_types=period_types.split(","), delta=long(delta))
 
-        logging.info("Redirecting to: /livecount/counter_admin?namespace=" + namespace + "&period_type=" + period_type + "&period_types=" + period_types + "&period=" + period + "&counter_name=" + name + "&delta=" + delta)
-        self.redirect("/livecount/counter_admin?namespace=" + namespace + "&period_type=" + period_type + "&period_types=" + period_types + "&period=" + period + "&counter_name=" + name + "&delta=" + delta)
+        url = ("/livecount/counter_admin?period_type=" + period_type +
+                        "&period_types=" + period_types + "&period=" + period +
+                        "&counter_name=" + name + "&delta=" + delta)
+        logging.info("Redirecting to: {}".format(url))
+        self.redirect(url)
 
 
 app = webapp.WSGIApplication([
