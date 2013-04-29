@@ -22,7 +22,6 @@ import os
 #from google.appengine.ext import webapp
 import webapp2 as webapp
 from google.appengine.ext.webapp import template
-from google.appengine.ext import ndb
 
 from livecount import counter
 from livecount.counter import LivecountCounter
@@ -56,35 +55,39 @@ class CounterHandler(webapp.RequestHandler):
 
         modified_counter = None
         if name:
-            full_key = LivecountCounter.get_key(None, period_type, period, name)
+            full_key = LivecountCounter.get_key(None, period_type, period,
+                                                name)
             modified_counter = full_key.get()
 
         counter_entities_query = LivecountCounter.query().order(
-                -LivecountCounter.count)
+            -LivecountCounter.count)
         if period_type:
-            counter_entities_query.filter(LivecountCounter.period_type == period_type)
+            counter_entities_query.filter(
+                LivecountCounter.period_type == period_type)
         scoped_period = PeriodType.find_scope(period_type, period)
         if period:
-            counter_entities_query.filter(LivecountCounter.period == scoped_period)
+            counter_entities_query.filter(
+                LivecountCounter.period == scoped_period)
         counter_entities = counter_entities_query.fetch(int(fetch_limit))
         logging.info("counter_entities: " + str(counter_entities))
 
         stats = counter.GetMemcacheStats()
 
         template_values = {
-                           'period_type': period_type,
-                           'period_types': period_types,
-                           'period': period,
-                           'counter_name': name,
-                           'delta': delta,
-                           'modified_counter': modified_counter,
-                           'counters': counter_entities,
-                           'stats': stats
-                           }
+            'period_type': period_type,
+            'period_types': period_types,
+            'period': period,
+            'counter_name': name,
+            'delta': delta,
+            'modified_counter': modified_counter,
+            'counters': counter_entities,
+            'stats': stats
+        }
         logging.info("template_values: " + str(template_values))
-        template_file = os.path.join(os.path.dirname(__file__), 'counter_admin.html')
-        self.response.out.write(template.render(template_file, template_values))
-
+        template_file = os.path.join(os.path.dirname(__file__),
+                                     'counter_admin.html')
+        self.response.out.write(
+            template.render(template_file, template_values))
 
     def post(self):
         period_type = self.request.get('period_type')
@@ -95,19 +98,20 @@ class CounterHandler(webapp.RequestHandler):
         type = self.request.get('type')
         if type == "Increment Counter":
             counter.load_and_increment_counter(name=name, period=period,
-                    period_types=period_types.split(","), delta=long(delta))
+                                               period_types=period_types.split(
+                                                   ","), delta=long(delta))
         elif type == "Decrement Counter":
             counter.load_and_decrement_counter(name=name, period=period,
-                    period_types=period_types.split(","), delta=long(delta))
+                                               period_types=period_types.split(
+                                                   ","), delta=long(delta))
 
         url = ("/livecount/counter_admin?period_type=" + period_type +
-                        "&period_types=" + period_types + "&period=" + period +
-                        "&counter_name=" + name + "&delta=" + delta)
+               "&period_types=" + period_types + "&period=" + period +
+               "&counter_name=" + name + "&delta=" + delta)
         logging.info("Redirecting to: {}".format(url))
         self.redirect(url)
 
 
 app = webapp.WSGIApplication([
-        ('/livecount/counter_admin', CounterHandler),
-    ])
-
+    ('/livecount/counter_admin', CounterHandler),
+])
