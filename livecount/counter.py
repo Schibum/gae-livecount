@@ -33,17 +33,18 @@ import webapp2 as webapp
 
 
 class PeriodType(object):
-    SECOND = "second"
-    MINUTE = "minute"
-    HOUR = "hour"
-    DAY = "day"
-    WEEK = "week"
-    MONTH = "month"
-    YEAR = "year"
-    ALL = "all"
+    SECOND = 'second'
+    MINUTE = 'minute'
+    HOUR = 'hour'
+    DAY = 'day'
+    WEEK = 'week'
+    MONTH = 'month'
+    YEAR = 'year'
+    ALL = 'all'
 
     @staticmethod
     def find_scope(period_type, period):
+        # TODO(manu): better use strftime instead of string slicing
         if period_type == PeriodType.SECOND:
             # 2011-06-13 18:11:32
             return str(period)[0:19]
@@ -60,7 +61,7 @@ class PeriodType(object):
             if not isinstance(period, datetime):
                 period = PeriodType.str_to_datetime(period)
             # 2011-06-13week; use Monday as marker
-            return str(period - timedelta(period.weekday()))[0:10] + "week"
+            return str(period - timedelta(period.weekday()))[0:10] + 'week'
         elif period_type == PeriodType.MONTH:
             # 2011-06
             return str(period)[0:7]
@@ -68,11 +69,11 @@ class PeriodType(object):
             # 2011
             return str(period)[0:4]
         else:
-            return "all"
+            return 'all'
 
     @staticmethod
     def str_to_datetime(datetime_str):
-        time_format = "%Y-%m-%d %H:%M:%S"
+        time_format = '%Y-%m-%d %H:%M:%S'
         return datetime.fromtimestamp(time.mktime(
             time.strptime(datetime_str.split('.')[0], time_format)))
 
@@ -80,9 +81,9 @@ class PeriodType(object):
 class LivecountCounter(ndb.model.Model):
     #namespace is replaced with parent
     #namespace = db.StringProperty(default="default")
-    period_type = ndb.StringProperty(default=PeriodType.ALL)
-    period = ndb.StringProperty()
-    name = ndb.StringProperty()
+    # period_type = ndb.StringProperty(default=PeriodType.ALL)
+    # period = ndb.StringProperty()
+    # name = ndb.StringProperty()
     count = ndb.IntegerProperty()
 
     @staticmethod
@@ -111,16 +112,22 @@ class LivecountCounter(ndb.model.Model):
         key = cls.get_key(parent_key, name, period_type, period)
         return key.get()
 
-    @classmethod
-    def counters_query(cls, parent_key, name, period_type, period=None):
-        return cls.query(ancestor=parent_key).filter(
-            cls.name == name,
-            cls.period == period,
-            cls.period_type == period_type)
+    # @classmethod
+    # def counters_query(cls, parent_key, name, period_type, period=None):
+    #     return cls.query(ancestor=parent_key).filter(
+    #         cls.name == name,
+    #         cls.period == period,
+    #         cls.period_type == period_type)
 
 
-def load_and_get_count(name, period_type='all', period=datetime.now(),
+def load_and_get_count(name, period_type='all', period=None,
                        parent_key=None):
+    """
+    Loads count of given counter from datastore and caches it in memcache.
+    Returns 0 if counter does not exist.
+    """
+    if period is None:
+        period = datetime.now()
     # Try memcache first
     key_id = LivecountCounter.get_key_id(name, period_type, period)
     namespace = LivecountCounter.parent_to_ns(parent_key)
@@ -137,7 +144,8 @@ def load_and_get_count(name, period_type='all', period=datetime.now(),
         if record:
             count = record.count
             memcache.add(key_id, count, namespace=namespace)
-
+        else:
+            count = 0
     return count
 
 
@@ -200,7 +208,7 @@ def load_and_increment_counter(name, period=None,
         if not batch_size or (batch_size and current_count % batch_size == 0):
             if memcache.add(key_id + '_dirty', delta, namespace=namespace):
                 logging.info(
-                    "Adding task to taskqueue. counter value = " + str(
+                    'Adding task to taskqueue. counter value = ' + str(
                         memcache.get(key_id, namespace=namespace)))
                 params = {'name': name, 'period': period,
                           'period_type': period_type}
